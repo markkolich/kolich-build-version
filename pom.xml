@@ -1,0 +1,217 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.kolich</groupId>
+        <artifactId>kolich-parent</artifactId>
+        <version>1.1.0</version>
+    </parent>
+
+    <groupId>com.kolich</groupId>
+    <artifactId>kolich-build-version</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>kolich-build-version</name>
+    <description>The build number, timestamp, version and branch of a running application.</description>
+    <url>https://github.com/markkolich/kolich-build-version</url>
+
+    <licenses>
+        <license>
+            <name>MIT</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <id>markkolich</id>
+            <name>Mark Kolich</name>
+            <email>social@kolich.com</email>
+        </developer>
+    </developers>
+
+    <properties>
+        <!--
+            Overrides kolich-parent's 21. This library targets Java 11 so that applications on an
+            older runtime can still use it; the parent's PMD targetJdk follows this property too.
+        -->
+        <project.java-release.version>11</project.java-release.version>
+    </properties>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <!-- Test dependencies -->
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+
+        <plugins>
+            <plugin>
+                <artifactId>maven-clean-plugin</artifactId>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>dist</directory>
+                            <followSymlinks>false</followSymlinks>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <release>${project.java-release.version}</release>
+                    <encoding>UTF-8</encoding>
+                    <compilerArgs>
+                        <arg>-Xlint:all</arg>
+                        <arg>-Xlint:-processing</arg>
+                        <arg>-Xlint:-serial</arg>
+                        <arg>-Werror</arg>
+                    </compilerArgs>
+                    <showWarnings>true</showWarnings>
+                    <showDeprecation>true</showDeprecation>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <!-- Keeps the Surefire "ForkedBooter" from popping up in the macOS dock. -->
+                        <java.awt.headless>true</java.awt.headless>
+                    </systemPropertyVariables>
+                    <argLine>-Xshare:off</argLine>
+                </configuration>
+            </plugin>
+            <!--
+                Checkstyle, PMD and the duplicate class/resource check are configured in
+                kolich-parent's <pluginManagement>, which also puts kolich-build-config on each
+                plugin's classpath so the rules are loaded from there. Declaring them here is what
+                turns them on: all three run in prepare-package and fail the build on a violation.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!--
+                Lays out dist/: the JAR, sources JAR and POM, each with the .md5/.sha1
+                checksum sidecar files a real Maven repository expects. Publish by copying
+                dist/kolich-build-version/${project.version} into the markkolich.github.io repo under
+                repo/com/kolich/kolich-build-version/.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>dist-artifacts</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <property name="dist.dir" value="dist/${project.artifactId}/${project.version}" />
+                                <copy todir="${dist.dir}">
+                                    <fileset dir="${project.build.directory}">
+                                        <include name="${project.build.finalName}.jar" />
+                                        <include name="${project.build.finalName}-sources.jar" />
+                                    </fileset>
+                                </copy>
+                                <copy file="pom.xml" tofile="${dist.dir}/${project.build.finalName}.pom" />
+                                <checksum algorithm="MD5" fileext=".md5">
+                                    <fileset dir="${dist.dir}">
+                                        <include name="*.jar" />
+                                        <include name="*.pom" />
+                                    </fileset>
+                                </checksum>
+                                <checksum algorithm="SHA-1" fileext=".sha1">
+                                    <fileset dir="${dist.dir}">
+                                        <include name="*.jar" />
+                                        <include name="*.pom" />
+                                    </fileset>
+                                </checksum>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+
+    </build>
+
+    <repositories>
+        <repository>
+            <id>markkolich.github.io</id>
+            <name>markkolich.github.io</name>
+            <url>https://markkolich.github.io/repo</url>
+            <releases />
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <!--
+        Maven resolves a plugin's own dependencies from <pluginRepositories>, not <repositories>.
+        kolich-parent puts kolich-build-config on the Checkstyle, PMD and versions plugin
+        classpaths, so without this the build only finds it if it is already in ~/.m2.
+    -->
+    <pluginRepositories>
+        <pluginRepository>
+            <id>markkolich.github.io</id>
+            <name>markkolich.github.io</name>
+            <url>https://markkolich.github.io/repo</url>
+            <releases />
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+
+</project>
