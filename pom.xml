@@ -6,12 +6,12 @@
     <parent>
         <groupId>com.kolich</groupId>
         <artifactId>kolich-parent</artifactId>
-        <version>1.1.0</version>
+        <version>1.2.1</version>
     </parent>
 
     <groupId>com.kolich</groupId>
     <artifactId>kolich-build-version</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <name>kolich-build-version</name>
